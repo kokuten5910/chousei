@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>出欠アプリ</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: #fdf6ec;
+    color: #3a3230;
+    margin: 0;
+    padding: 16px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; text-align: center; margin: 12px 0 4px; }
+  .sub { text-align: center; color: #8a7f78; font-size: 0.85rem; margin-bottom: 20px; }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(120, 90, 60, 0.08);
+    margin-bottom: 16px;
+  }
+  label { display: block; font-weight: bold; margin: 14px 0 6px; font-size: 0.95rem; }
+  label:first-child { margin-top: 0; }
+  input[type="text"], input[type="date"], input[type="time"], input[type="datetime-local"], textarea {
+    border: 2px solid #ead9c2;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #fffdf9;
+  }
+  input[type="text"], textarea { width: 100%; }
+  textarea { resize: vertical; }
+  button {
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    border-radius: 999px;
+    font-weight: bold;
+  }
+  .btn-main {
+    display: block;
+    width: 100%;
+    background: #e8873a;
+    color: #fff;
+    font-size: 1.05rem;
+    padding: 14px;
+    margin-top: 20px;
+  }
+  .btn-main:disabled { background: #d8c9b8; }
+  .btn-sub {
+    background: #f3e7d7;
+    color: #7a5c38;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+  /* 候補日時ビルダー */
+  .slot-builder {
+    border: 2px solid #f3e7d7;
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #fffdf9;
+  }
+  .slot-top { display: flex; gap: 8px; align-items: center; }
+  .slot-top input[type="date"] { flex: 1; }
+  .slot-top .del {
+    background: #f6ddd3;
+    color: #a34a2e;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .periods { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  .periods button {
+    background: #f7efe3;
+    color: #8a7f78;
+    padding: 8px 14px;
+    font-size: 0.95rem;
+    border: 2px solid transparent;
+  }
+  .periods button.sel { background: #ffe9d2; border-color: #e8873a; color: #b35c12; }
+  .periods input[type="time"] { padding: 6px 8px; }
+  .slot-preview { margin-top: 8px; font-size: 0.9rem; color: #7a5c38; }
+  /* 共有URL */
+  .share-url {
+    background: #fdf1de;
+    border: 2px dashed #e8873a;
+    border-radius: 10px;
+    padding: 12px;
+    word-break: break-all;
+    font-size: 0.9rem;
+    margin: 10px 0;
+  }
+  .share-url.admin { border-color: #5a7de0; background: #e9efff; }
+  /* 出欠表 */
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { border: 1px solid #ead9c2; padding: 8px 6px; text-align: center; }
+  th { background: #fdf1de; }
+  td.name, th.name { text-align: left; font-weight: bold; }
+  .count { font-size: 0.8rem; color: #8a7f78; }
+  /* 回答フォーム */
+  .answer-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid #f3e7d7;
+  }
+  .answer-row .slot-label { flex: 1; font-size: 0.95rem; }
+  .choices { display: flex; gap: 6px; }
+  .choices button {
+    width: 44px; height: 44px;
+    font-size: 1.15rem;
+    background: #f7efe3;
+    color: #8a7f78;
+    border: 2px solid transparent;
+  }
+  .choices button.sel-maru2 { background: #ffd9d9; border-color: #d93a3a; color: #c22e2e; }
+  .choices button.sel-maru { background: #ffe3e3; border-color: #e05a5a; color: #c93a3a; }
+  .choices button.sel-tri { background: #fff3c9; border-color: #d9a514; color: #9a7400; }
+  .choices button.sel-x { background: #e3ecff; border-color: #5a7de0; color: #3a55c9; }
+  /* ラジオ・チェック */
+  .radio-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .radio-row label {
+    margin: 0;
+    background: #f7efe3;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: normal;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  .radio-row label.sel { background: #ffe9d2; border-color: #e8873a; }
+  .radio-row input { display: none; }
+  .deadline-row { display: flex; gap: 10px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .msg { text-align: center; padding: 10px; font-size: 0.95rem; }
+  .msg.err { color: #c93a3a; }
+  .msg.ok { color: #3a8a3a; }
+  .hidden { display: none; }
+  .center { text-align: center; }
+  .small { font-size: 0.85rem; color: #8a7f78; }
+  .deadline-note { text-align: center; font-size: 0.9rem; color: #b35c12; margin: 4px 0 10px; }
+  .closed-note {
+    background: #f6ddd3; color: #a34a2e;
+    border-radius: 10px; padding: 12px; text-align: center; font-weight: bold;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📅 出欠アプリ</h1>
+  <p class="sub">候補日を出して、みんなに ◎ ○ △ ✖ で答えてもらうページです</p>
+
+  <!-- イベント作成 -->
+  <div id="view-create" class="card hidden">
+    <label>イベント名</label>
+    <input type="text" id="ev-title" placeholder="例：同窓会の日程調整">
+    <label>候補日時</label>
+    <div id="slot-list"></div>
+    <button class="btn-sub" id="add-slot" type="button">＋ 候補を増やす</button>
+    <label>回答の見せ方</label>
+    <div class="radio-row" id="vis-row">
+      <label class="sel"><input type="radio" name="vis" value="public" checked>みんなが見られる</label>
+      <label><input type="radio" name="vis" value="admin">管理者だけが見られる</label>
+    </div>
+    <label>締め切り</label>
+    <div class="radio-row" id="dl-row">
+      <label class="sel"><input type="radio" name="dl" value="none" checked>つけない</label>
+      <label><input type="radio" name="dl" value="set">つける</label>
+    </div>
+    <div class="deadline-row hidden" id="dl-input-row">
+      <input type="datetime-local" id="ev-deadline">
+      <span class="small">まで回答できます</span>
+    </div>
+    <label>メモ（任意）</label>
+    <textarea id="ev-memo" rows="2" placeholder="例：場所は未定です。決まったら連絡します"></textarea>
+    <button class="btn-main" id="create-btn" type="button">イベントを作る</button>
+    <p class="msg err hidden" id="create-err"></p>
+  </div>
+
+  <!-- 作成完了・共有 -->
+  <div id="view-share" class="card hidden">
+    <p class="center"><strong>イベントができました🎉</strong></p>
+    <p class="small">▼ 参加者に配るURL（出欠を入れるページ）</p>
+    <div class="share-url" id="share-url"></div>
+    <button class="btn-sub" id="copy-btn" type="button">URLをコピー</button>
+    <button class="btn-sub" id="go-event" type="button">イベントページを開く</button>
+    <p class="small" style="margin-top:18px;">▼ 管理者用URL（あなた専用・配らないでね）<br>回答の一覧と、締め切りの延長ができます。</p>
+    <div class="share-url admin" id="admin-url"></div>
+    <button class="btn-sub" id="copy-admin-btn" type="button">管理者用URLをコピー</button>
+    <button class="btn-sub" id="go-admin" type="button">管理者ページを開く</button>
+  </div>
+
+  <!-- イベントページ -->
+  <div id="view-event" class="hidden">
+    <div class="card">
+      <h1 id="ev-name" style="margin-top:0;"></h1>
+      <p class="small center" id="ev-memo-view"></p>
+      <p class="deadline-note" id="ev-deadline-view"></p>
+      <div id="table-area">
+        <div style="overflow-x:auto;">
+          <table id="result-table"></table>
+        </div>
+        <p class="small">⭐は ◎○ が一番多い候補です。名前をクリックすると、その人の回答を直せます。</p>
+      </div>
+      <p class="small center hidden" id="hidden-note">回答は管理者だけが見られます</p>
+    </div>
+
+    <div class="card hidden" id="admin-card">
+      <p style="margin-top:0;"><strong>🔑 管理者メニュー</strong></p>
+      <label>締め切りの延長・変更</label>
+      <div class="deadline-row">
+        <input type="datetime-local" id="admin-deadline">
+        <button class="btn-sub" id="extend-btn" type="button">この日時まで延長</button>
+        <button class="btn-sub" id="clear-deadline-btn" type="button">締め切りをなしにする</button>
+      </div>
+      <p class="msg hidden" id="admin-msg"></p>
+    </div>
+
+    <div class="card" id="form-card">
+      <p style="margin-top:0;"><strong id="form-title">出欠を入れる</strong></p>
+      <label>お名前</label>
+      <input type="text" id="resp-name" placeholder="例：山田">
+      <div id="answer-list" style="margin-top:14px;"></div>
+      <label>コメント（任意）</label>
+      <input type="text" id="resp-comment" placeholder="例：遅れるかもしれません">
+      <button class="btn-main" id="submit-btn" type="button">回答する</button>
+      <p class="msg hidden" id="submit-msg"></p>
+    </div>
+    <div class="card hidden" id="closed-card">
+      <p class="closed-note">回答は締め切られました</p>
+      <p class="small center">延長の相談は、管理者までお願いします。</p>
+    </div>
+    <p class="center"><button class="btn-sub" id="new-event" type="button">＋ 新しいイベントを作る</button></p>
+  </div>
+
+  <p class="msg" id="loading">読み込み中…</p>
+</div>
+
+<script>
+const CONFIG = {
+  API_URL: "https://script.google.com/macros/s/AKfycbxpQOdBCqcNeMbWsQxKtPXStkPRjPRqz7spyVj8wHPkZLPyTgA3wYaC7UWOHMjHqfe0bA/exec"
+};
+const MARKS = ["◎", "○", "△", "✖"];
+const MARK_CLASS = { "◎": "sel-maru2", "○": "sel-maru", "△": "sel-tri", "✖": "sel-x" };
+const PERIODS = ["終日", "午前", "午後", "夜", "時間"];
+
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const eventId = params.get("e");
+const adminToken = params.get("admin") || "";
+
+let currentEvent = null;
+let currentAnswers = [];
+let isAdmin = false;
+
+async function apiGet(action, extra) {
+  const q = new URLSearchParams({ action, ...extra });
+  const res = await fetch(CONFIG.API_URL + "?" + q.toString());
+  return res.json();
+}
+async function apiPost(body) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function showOnly(id) {
+  ["view-create", "view-share", "view-event"].forEach(v => $(v).classList.add("hidden"));
+  $("loading").classList.add("hidden");
+  if (id) $(id).classList.remove("hidden");
+}
+function radioWire(rowId) {
+  const row = $(rowId);
+  row.querySelectorAll("label").forEach(l => {
+    l.addEventListener("click", () => {
+      row.querySelectorAll("label").forEach(x => x.classList.remove("sel"));
+      l.classList.add("sel");
+    });
+  });
+}
+function radioValue(name) {
+  const el = document.querySelector("input[name='" + name + "']:checked");
+  return el ? el.value : "";
+}
+function fmtDeadline(iso) {
+  if (!iso) return "";
+  const dt = new Date(iso);
+  if (isNaN(dt)) return "";
+  const w = ["日", "月", "火", "水", "木", "金", "土"][dt.getDay()];
+  return (dt.getMonth() + 1) + "/" + dt.getDate() + "（" + w + "） " +
+    String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
+}
+
+/* ---------- 候補日時ビルダー ---------- */
+function slotLabel(sb) {
+  const dateVal = sb.querySelector("input[type='date']").value;
+  if (!dateVal) return "";
+  const dt = new Date(dateVal + "T00:00:00");
+  const w = ["日", "月", "火", "水", "木", "金", "土"][dt.getDay()];
+  let s = (dt.getMonth() + 1) + "/" + dt.getDate() + "（" + w + "）";
+  const period = sb.dataset.period || "終日";
+  if (period === "時間") {
+    const t = sb.querySelector("input[type='time']").value;
+    s += t ? " " + t : " 時間未定";
+  } else if (period !== "終日") {
+    s += " " + period;
+  }
+  return s;
+}
+function refreshSlotPreview(sb) {
+  sb.querySelector(".slot-preview").textContent = slotLabel(sb) ? "→ " + slotLabel(sb) : "日付を選んでください";
+}
+function slotBuilder() {
+  const div = document.createElement("div");
+  div.className = "slot-builder";
+  div.dataset.period = "終日";
+  const top = document.createElement("div");
+  top.className = "slot-top";
+  const date = document.createElement("input");
+  date.type = "date";
+  date.addEventListener("change", () => refreshSlotPreview(div));
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "del";
+  del.textContent = "×";
+  del.onclick = () => div.remove();
+  top.appendChild(date);
+  top.appendChild(del);
+  const periods = document.createElement("div");
+  periods.className = "periods";
+  PERIODS.forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = p;
+    if (p === "終日") b.className = "sel";
+    b.onclick = () => {
+      div.dataset.period = p;
+      periods.querySelectorAll("button").forEach(x => x.classList.remove("sel"));
+      b.classList.add("sel");
+      timeInput.classList.toggle("hidden", p !== "時間");
+      refreshSlotPreview(div);
+    };
+    periods.appendChild(b);
+  });
+  const timeInput = document.createElement("input");
+  timeInput.type = "time";
+  timeInput.className = "hidden";
+  timeInput.addEventListener("change", () => refreshSlotPreview(div));
+  periods.appendChild(timeInput);
+  const preview = document.createElement("div");
+  preview.className = "slot-preview";
+  preview.textContent = "日付を選んでください";
+  div.appendChild(top);
+  div.appendChild(periods);
+  div.appendChild(preview);
+  return div;
+}
+
+/* ---------- イベント作成 ---------- */
+function initCreate() {
+  showOnly("view-create");
+  const list = $("slot-list");
+  list.innerHTML = "";
+  list.appendChild(slotBuilder());
+  list.appendChild(slotBuilder());
+  list.appendChild(slotBuilder());
+  $("add-slot").onclick = () => list.appendChild(slotBuilder());
+  radioWire("vis-row");
+  radioWire("dl-row");
+  document.querySelectorAll("input[name='dl']").forEach(r => {
+    r.addEventListener("change", () => {
+      $("dl-input-row").classList.toggle("hidden", radioValue("dl") !== "set");
+    });
+  });
+  $("create-btn").onclick = async () => {
+    const title = $("ev-title").value.trim();
+    const slots = [...list.querySelectorAll(".slot-builder")].map(slotLabel).filter(Boolean);
+    const err = $("create-err");
+    err.classList.add("hidden");
+    if (!title || slots.length === 0) {
+      err.textContent = "イベント名と候補日時（日付）を入れてください";
+      err.classList.remove("hidden");
+      return;
+    }
+    let deadline = "";
+    if (radioValue("dl") === "set") {
+      const v = $("ev-deadline").value;
+      if (!v) {
+        err.textContent = "締め切りの日時を選んでください";
+        err.classList.remove("hidden");
+        return;
+      }
+      deadline = new Date(v).toISOString();
+    }
+    $("create-btn").disabled = true;
+    $("create-btn").textContent = "作成中…";
+    try {
+      const r = await apiPost({
+        action: "create_event",
+        title,
+        memo: $("ev-memo").value.trim(),
+        slots,
+        visibility: radioValue("vis"),
+        deadline,
+      });
+      if (!r.ok) throw new Error(r.error || "error");
+      const base = location.origin + location.pathname;
+      const url = base + "?e=" + r.id;
+      const adminUrl = url + "&admin=" + r.admin_token;
+      $("share-url").textContent = url;
+      $("admin-url").textContent = adminUrl;
+      $("go-event").onclick = () => location.href = url;
+      $("go-admin").onclick = () => location.href = adminUrl;
+      const wireCopy = (btnId, text) => {
+        $(btnId).onclick = async () => {
+          try { await navigator.clipboard.writeText(text); $(btnId).textContent = "コピーしました✓"; }
+          catch { $(btnId).textContent = "長押しでコピーしてね"; }
+        };
+      };
+      wireCopy("copy-btn", url);
+      wireCopy("copy-admin-btn", adminUrl);
+      showOnly("view-share");
+    } catch (e) {
+      err.textContent = "作れませんでした。通信を確認してもう一度試してください";
+      err.classList.remove("hidden");
+      $("create-btn").disabled = false;
+      $("create-btn").textContent = "イベントを作る";
+    }
+  };
+}
+
+/* ---------- イベントページ ---------- */
+function renderEvent(data) {
+  currentEvent = data.event;
+  isAdmin = !!data.is_admin;
+  const ev = data.event;
+  const responses = data.responses || [];
+  $("ev-name").textContent = ev.title;
+  $("ev-memo-view").textContent = ev.memo || "";
+  const closed = ev.deadline && new Date() > new Date(ev.deadline);
+  $("ev-deadline-view").textContent = ev.deadline
+    ? (closed ? "締め切り：" + fmtDeadline(ev.deadline) + "（終了）" : "締め切り：" + fmtDeadline(ev.deadline) + " まで")
+    : "";
+
+  // 回答の公開範囲
+  if (data.responses_hidden) {
+    $("table-area").classList.add("hidden");
+    $("hidden-note").classList.remove("hidden");
+  } else {
+    $("table-area").classList.remove("hidden");
+    $("hidden-note").classList.add("hidden");
+    const score = ev.slots.map((_, i) =>
+      responses.reduce((acc, r) => acc + (r.answers[i] === "◎" ? 2 : r.answers[i] === "○" ? 1 : 0), 0));
+    const maxScore = Math.max(0, ...score);
+    let html = "<tr><th class='name'>名前</th>" + ev.slots.map(s => "<th>" + escapeHtml(s) + "</th>").join("") + "<th>コメント</th></tr>";
+    html += "<tr><td class='name'>◎○の数</td>" + ev.slots.map((_, i) => {
+      const c2 = responses.filter(r => r.answers[i] === "◎").length;
+      const c1 = responses.filter(r => r.answers[i] === "○").length;
+      return "<td>" + (maxScore > 0 && score[i] === maxScore ? "⭐" : "") +
+        "<strong>◎" + c2 + " ○" + c1 + "</strong><div class='count'>" + responses.length + "人中</div></td>";
+    }).join("") + "<td></td></tr>";
+    responses.forEach(r => {
+      html += "<tr><td class='name'><a href='#' data-name='" + escapeHtml(r.name) + "' class='edit-link'>" + escapeHtml(r.name) + "</a></td>"
+        + ev.slots.map((_, i) => "<td>" + (r.answers[i] || "✖") + "</td>").join("")
+        + "<td>" + escapeHtml(r.comment || "") + "</td></tr>";
+    });
+    if (responses.length === 0) {
+      html += "<tr><td colspan='" + (ev.slots.length + 2) + "'>まだ回答がありません</td></tr>";
+    }
+    $("result-table").innerHTML = html;
+    document.querySelectorAll(".edit-link").forEach(a => {
+      a.onclick = (e) => {
+        e.preventDefault();
+        const r = responses.find(x => x.name === a.dataset.name);
+        if (r) fillForm(r);
+      };
+    });
+  }
+
+  // 管理者メニュー
+  $("admin-card").classList.toggle("hidden", !isAdmin);
+  if (isAdmin && ev.deadline) {
+    const dt = new Date(ev.deadline);
+    const local = new Date(dt.getTime() - dt.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    $("admin-deadline").value = local;
+  }
+
+  // 締め切り後はフォームを閉じる（管理者は回答の修正だけ可とするため表示は残す）
+  if (closed && !isAdmin) {
+    $("form-card").classList.add("hidden");
+    $("closed-card").classList.remove("hidden");
+  } else {
+    $("form-card").classList.remove("hidden");
+    $("closed-card").classList.add("hidden");
+  }
+
+  currentAnswers = ev.slots.map(() => "○");
+  renderAnswerForm();
+  showOnly("view-event");
+}
+
+function renderAnswerForm() {
+  const list = $("answer-list");
+  list.innerHTML = "";
+  currentEvent.slots.forEach((slot, i) => {
+    const row = document.createElement("div");
+    row.className = "answer-row";
+    const label = document.createElement("div");
+    label.className = "slot-label";
+    label.textContent = slot;
+    const choices = document.createElement("div");
+    choices.className = "choices";
+    MARKS.forEach(mark => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = mark;
+      if (currentAnswers[i] === mark) b.className = MARK_CLASS[mark];
+      b.onclick = () => { currentAnswers[i] = mark; renderAnswerForm(); };
+      choices.appendChild(b);
+    });
+    row.appendChild(label);
+    row.appendChild(choices);
+    list.appendChild(row);
+  });
+}
+
+function fillForm(r) {
+  $("resp-name").value = r.name;
+  $("resp-comment").value = r.comment || "";
+  currentAnswers = currentEvent.slots.map((_, i) => r.answers[i] || "✖");
+  $("form-title").textContent = "出欠を直す（" + r.name + "さん）";
+  renderAnswerForm();
+  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+}
+
+async function reloadEvent() {
+  const data = await apiGet("get_event", { id: eventId, admin: adminToken });
+  if (data.ok) renderEvent(data);
+  return data;
+}
+
+async function initEvent() {
+  try {
+    const data = await apiGet("get_event", { id: eventId, admin: adminToken });
+    if (!data.ok) {
+      $("loading").textContent = "イベントが見つかりませんでした。URLを確認してください";
+      return;
+    }
+    renderEvent(data);
+    $("submit-btn").onclick = async () => {
+      const name = $("resp-name").value.trim();
+      const msg = $("submit-msg");
+      msg.className = "msg";
+      if (!name) {
+        msg.textContent = "お名前を入れてください";
+        msg.classList.add("err");
+        msg.classList.remove("hidden");
+        return;
+      }
+      $("submit-btn").disabled = true;
+      $("submit-btn").textContent = "送信中…";
+      try {
+        const r = await apiPost({
+          action: "submit_response",
+          event_id: eventId,
+          name,
+          answers: currentAnswers,
+          comment: $("resp-comment").value.trim(),
+        });
+        if (!r.ok && r.error === "closed") {
+          msg.textContent = "締め切りを過ぎていて、回答できませんでした";
+          msg.classList.add("err");
+          msg.classList.remove("hidden");
+        } else if (!r.ok) {
+          throw new Error(r.error || "error");
+        } else {
+          msg.textContent = r.updated ? "回答を直しました✓" : "回答しました✓ ありがとうございます";
+          msg.classList.add("ok");
+          msg.classList.remove("hidden");
+          await reloadEvent();
+        }
+      } catch (e) {
+        msg.textContent = "送れませんでした。通信を確認してもう一度試してください";
+        msg.classList.add("err");
+        msg.classList.remove("hidden");
+      }
+      $("submit-btn").disabled = false;
+      $("submit-btn").textContent = "回答する";
+    };
+    const extend = async (deadlineIso) => {
+      const msg = $("admin-msg");
+      msg.className = "msg";
+      try {
+        const r = await apiPost({ action: "extend_deadline", event_id: eventId, admin_token: adminToken, deadline: deadlineIso });
+        if (!r.ok) throw new Error(r.error || "error");
+        msg.textContent = deadlineIso ? "締め切りを変更しました✓" : "締め切りをなしにしました✓";
+        msg.classList.add("ok");
+        msg.classList.remove("hidden");
+        await reloadEvent();
+      } catch (e) {
+        msg.textContent = "変更できませんでした";
+        msg.classList.add("err");
+        msg.classList.remove("hidden");
+      }
+    };
+    $("extend-btn").onclick = () => {
+      const v = $("admin-deadline").value;
+      if (!v) return;
+      extend(new Date(v).toISOString());
+    };
+    $("clear-deadline-btn").onclick = () => extend("");
+    $("new-event").onclick = () => { location.href = location.origin + location.pathname; };
+  } catch (e) {
+    $("loading").textContent = "読み込めませんでした。通信を確認して、もう一度開いてください";
+  }
+}
+
+if (eventId) {
+  initEvent();
+} else {
+  initCreate();
+}
+</script>
+</body>
+</html>
