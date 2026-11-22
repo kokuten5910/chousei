@@ -246,7 +246,27 @@
       <h1 id="ev-name" style="margin-top:0;"></h1>
       <p class="small center" id="ev-memo-view"></p>
       <p class="deadline-note" id="ev-deadline-view"></p>
-      <div id="table-area">
+      <p class="small center" style="margin-bottom:0;">まず自分の出欠を入れてください。その下で、みんなの回答も見られます。</p>
+    </div>
+
+    <div class="card" id="form-card">
+      <p style="margin-top:0;"><strong id="form-title">出欠を入れる</strong></p>
+      <label>お名前</label>
+      <input type="text" id="resp-name" placeholder="例：山田">
+      <div id="answer-list" style="margin-top:14px;"></div>
+      <label>コメント（任意）</label>
+      <input type="text" id="resp-comment" placeholder="例：遅れるかもしれません">
+      <button class="btn-main" id="submit-btn" type="button">回答する</button>
+      <p class="msg hidden" id="submit-msg"></p>
+    </div>
+    <div class="card hidden" id="closed-card">
+      <p class="closed-note">回答は締め切られました</p>
+      <p class="small center">延長の相談は、管理者までお願いします。</p>
+    </div>
+
+    <div class="card">
+      <button class="btn-sub" id="toggle-table" type="button" style="width:100%; padding:12px;">みんなの回答を見る ▼</button>
+      <div id="table-area" class="hidden" style="margin-top:14px;">
         <div style="overflow-x:auto;">
           <table id="result-table"></table>
         </div>
@@ -266,20 +286,6 @@
       <p class="msg hidden" id="admin-msg"></p>
     </div>
 
-    <div class="card" id="form-card">
-      <p style="margin-top:0;"><strong id="form-title">出欠を入れる</strong></p>
-      <label>お名前</label>
-      <input type="text" id="resp-name" placeholder="例：山田">
-      <div id="answer-list" style="margin-top:14px;"></div>
-      <label>コメント（任意）</label>
-      <input type="text" id="resp-comment" placeholder="例：遅れるかもしれません">
-      <button class="btn-main" id="submit-btn" type="button">回答する</button>
-      <p class="msg hidden" id="submit-msg"></p>
-    </div>
-    <div class="card hidden" id="closed-card">
-      <p class="closed-note">回答は締め切られました</p>
-      <p class="small center">延長の相談は、管理者までお願いします。</p>
-    </div>
     <p class="center"><button class="btn-sub" id="new-event" type="button">＋ 新しいイベントを作る</button></p>
   </div>
 
@@ -330,6 +336,7 @@ const eventId = params.get("e");
 const adminToken = params.get("admin") || localStorage.getItem("shukketuMaster") || "";
 
 let currentEvent = null;
+let tableOpen = false;
 let currentAnswers = [];
 let isAdmin = false;
 
@@ -556,13 +563,16 @@ function renderEvent(data) {
     ? (closed ? "締め切り：" + fmtDeadline(ev.deadline) + "（終了）" : "締め切り：" + fmtDeadline(ev.deadline) + " まで")
     : "";
 
-  // 回答の公開範囲
+  // 回答の公開範囲（表は「みんなの回答を見る」を押すまで閉じておく）
   if (data.responses_hidden) {
+    $("toggle-table").classList.add("hidden");
     $("table-area").classList.add("hidden");
     $("hidden-note").classList.remove("hidden");
   } else {
-    $("table-area").classList.remove("hidden");
+    $("toggle-table").classList.remove("hidden");
     $("hidden-note").classList.add("hidden");
+    $("table-area").classList.toggle("hidden", !tableOpen);
+    $("toggle-table").textContent = tableOpen ? "みんなの回答を閉じる ▲" : "みんなの回答を見る ▼";
     const score = ev.slots.map((_, i) =>
       responses.reduce((acc, r) => acc + (r.answers[i] === "◎" ? 2 : r.answers[i] === "○" ? 1 : 0), 0));
     const maxScore = Math.max(0, ...score);
@@ -668,6 +678,11 @@ async function initEvent() {
       return;
     }
     renderEvent(data);
+    $("toggle-table").onclick = () => {
+      tableOpen = !tableOpen;
+      $("table-area").classList.toggle("hidden", !tableOpen);
+      $("toggle-table").textContent = tableOpen ? "みんなの回答を閉じる ▲" : "みんなの回答を見る ▼";
+    };
     $("submit-btn").onclick = async () => {
       const name = $("resp-name").value.trim();
       const msg = $("submit-msg");
