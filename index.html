@@ -119,10 +119,27 @@
     color: #7a5c38;
     text-decoration: underline dotted #d8c9b8;
   }
-  .cmt.open {
-    white-space: normal;
-    word-break: break-word;
-    max-width: 220px;
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(58, 50, 48, 0.45);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 50;
+  }
+  .modal-box {
+    background: #fff;
+    width: 100%;
+    max-width: 640px;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0;
+    padding: 20px;
+  }
+  .modal-box .who { font-weight: bold; margin: 0 0 8px; }
+  .modal-box .body { white-space: pre-wrap; word-break: break-word; margin: 0; }
+  .modal-box button {
+    display: block; width: 100%;
+    background: #f3e7d7; color: #7a5c38;
+    padding: 12px; margin-top: 16px; font-size: 1rem;
   }
   /* 回答フォーム */
   .answer-row {
@@ -226,7 +243,7 @@
         <div style="overflow-x:auto;">
           <table id="result-table"></table>
         </div>
-        <p class="small">⭐は ◎○ が一番多い候補です。名前をクリックすると、その人の回答を直せます。コメントはタップすると全文が見られます。</p>
+        <p class="small">⭐は ◎○ が一番多い候補です。名前をクリックすると、その人の回答を直せます。コメントはタップすると下から全文が出てきます。</p>
       </div>
       <p class="small center hidden" id="hidden-note">回答は管理者だけが見られます</p>
     </div>
@@ -279,6 +296,14 @@
     <p class="msg hidden" id="adminhub-msg"></p>
     <div id="admin-event-list"></div>
     <p class="center" style="margin-bottom:0;"><button class="btn-sub" id="adminhub-back" type="button">← イベント作成にもどる</button></p>
+  </div>
+
+  <div id="cmt-modal" class="modal-bg hidden">
+    <div class="modal-box">
+      <p class="who" id="cmt-who"></p>
+      <p class="body" id="cmt-body"></p>
+      <button type="button" id="cmt-close">閉じる</button>
+    </div>
   </div>
 
   <p class="msg" id="loading">読み込み中…</p>
@@ -541,14 +566,18 @@ function renderEvent(data) {
     responses.forEach(r => {
       html += "<tr><td class='name'><a href='#' data-name='" + escapeHtml(r.name) + "' class='edit-link'>" + escapeHtml(r.name) + "</a></td>"
         + ev.slots.map((_, i) => "<td class='mark'>" + (r.answers[i] || "✖") + "</td>").join("")
-        + "<td>" + (r.comment ? "<span class='cmt' title='タップで全部見る'>" + escapeHtml(r.comment) + "</span>" : "") + "</td></tr>";
+        + "<td>" + (r.comment ? "<span class='cmt' data-who='" + escapeHtml(r.name) + "' title='タップで全部見る'>" + escapeHtml(r.comment) + "</span>" : "") + "</td></tr>";
     });
     if (responses.length === 0) {
       html += "<tr><td colspan='" + (ev.slots.length + 2) + "'>まだ回答がありません</td></tr>";
     }
     $("result-table").innerHTML = html;
     document.querySelectorAll(".cmt").forEach(c => {
-      c.onclick = () => c.classList.toggle("open");
+      c.onclick = () => {
+        $("cmt-who").textContent = c.dataset.who + " さんのコメント";
+        $("cmt-body").textContent = c.textContent;
+        $("cmt-modal").classList.remove("hidden");
+      };
     });
     document.querySelectorAll(".edit-link").forEach(a => {
       a.onclick = (e) => {
@@ -772,6 +801,11 @@ function wireAdminHub() {
     openAdminHub();
   };
 }
+
+$("cmt-close").onclick = () => $("cmt-modal").classList.add("hidden");
+$("cmt-modal").addEventListener("click", (e) => {
+  if (e.target === $("cmt-modal")) $("cmt-modal").classList.add("hidden");
+});
 
 if (eventId) {
   initEvent();
