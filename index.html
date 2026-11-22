@@ -185,6 +185,11 @@
   .center { text-align: center; }
   .small { font-size: 0.85rem; color: #8a7f78; }
   .deadline-note { text-align: center; font-size: 0.9rem; color: #b35c12; margin: 4px 0 10px; }
+  @keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(232, 135, 58, 0.0); }
+    50% { box-shadow: 0 0 0 6px rgba(232, 135, 58, 0.35); }
+  }
+  .pulse { animation: pulseGlow 1s ease-in-out 3; background: #ffe9d2 !important; }
   .closed-note {
     background: #f6ddd3; color: #a34a2e;
     border-radius: 10px; padding: 12px; text-align: center; font-weight: bold;
@@ -246,7 +251,6 @@
       <h1 id="ev-name" style="margin-top:0;"></h1>
       <p class="small center" id="ev-memo-view"></p>
       <p class="deadline-note" id="ev-deadline-view"></p>
-      <p class="small center" style="margin-bottom:0;">まず自分の出欠を入れてください。その下で、みんなの回答も見られます。</p>
     </div>
 
     <div class="card" id="form-card">
@@ -710,10 +714,18 @@ async function initEvent() {
         } else if (!r.ok) {
           throw new Error(r.error || "error");
         } else {
-          msg.textContent = r.updated ? "回答を直しました✓" : "回答しました✓ ありがとうございます";
+          msg.textContent = (r.updated ? "回答を直しました✓" : "回答しました✓ ありがとうございます") +
+            (currentEvent && currentEvent.visibility === "public" ? " 下の「みんなの回答を見る」から、みんなの回答が見られます" : "");
           msg.classList.add("ok");
           msg.classList.remove("hidden");
           await reloadEvent();
+          const tb = $("toggle-table");
+          if (currentEvent && currentEvent.visibility === "public" && !tb.classList.contains("hidden")) {
+            tb.scrollIntoView({ behavior: "smooth", block: "center" });
+            tb.classList.remove("pulse");
+            void tb.offsetWidth;
+            tb.classList.add("pulse");
+          }
         }
       } catch (e) {
         msg.textContent = "送れませんでした。通信を確認してもう一度試してください";
