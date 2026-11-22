@@ -758,10 +758,23 @@ async function renderAdminList(master) {
     const dl = ev.deadline ? "・締切 " + fmtDeadline(ev.deadline) : "";
     return "<div class='answer-row'><div class='slot-label'><strong>" + escapeHtml(ev.title) + "</strong><br>" +
       "<span class='small'>" + dateStr + "・回答 " + ev.responses + "人" + dl + "</span></div>" +
-      "<button class='btn-sub' data-open='" + ev.id + "'>開く</button></div>";
+      "<button class='btn-sub' data-open='" + ev.id + "'>開く</button>" +
+      "<button class='btn-sub' data-copy='" + ev.id + "'>URLをコピー</button></div>";
   }).join("");
   list.querySelectorAll("[data-open]").forEach(b => {
     b.onclick = () => { location.href = location.pathname + "?e=" + b.dataset.open + "&admin=" + encodeURIComponent(master); };
+  });
+  list.querySelectorAll("[data-copy]").forEach(b => {
+    b.onclick = async () => {
+      const url = CONFIG.API_URL + "?e=" + b.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(url);
+        b.textContent = "コピーしました✓";
+      } catch {
+        b.textContent = url;
+      }
+      setTimeout(() => { b.textContent = "URLをコピー"; }, 2500);
+    };
   });
 }
 function wireAdminHub() {
