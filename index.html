@@ -262,6 +262,10 @@
       <input type="text" id="resp-comment" placeholder="例：遅れるかもしれません">
       <button class="btn-main" id="submit-btn" type="button">回答する</button>
       <p class="msg hidden" id="submit-msg"></p>
+      <p class="center" style="margin-bottom:0;">
+        <button class="btn-sub" id="delete-btn" type="button" style="background:#f6ddd3; color:#a34a2e;">回答を取り消す</button>
+      </p>
+      <p class="small center">取り消すときは、回答したときと<strong>同じ名前</strong>を上の「お名前」に入れてから押してください。</p>
     </div>
     <div class="card hidden" id="closed-card">
       <p class="closed-note">回答は締め切られました</p>
@@ -734,6 +738,40 @@ async function initEvent() {
       }
       $("submit-btn").disabled = false;
       $("submit-btn").textContent = "回答する";
+    };
+    $("delete-btn").onclick = async () => {
+      const name = $("resp-name").value.trim();
+      const msg = $("submit-msg");
+      msg.className = "msg";
+      if (!name) {
+        msg.textContent = "取り消すには、回答したときのお名前を入れてください";
+        msg.classList.add("err");
+        msg.classList.remove("hidden");
+        return;
+      }
+      if (!confirm(name + " さんの回答を取り消しますか？")) return;
+      $("delete-btn").disabled = true;
+      try {
+        const r = await apiPost({ action: "delete_response", event_id: eventId, name });
+        if (!r.ok) {
+          msg.textContent = "その名前の回答が見つかりませんでした。名前が同じか確認してください";
+          msg.classList.add("err");
+          msg.classList.remove("hidden");
+        } else {
+          msg.textContent = "回答を取り消しました✓";
+          msg.classList.add("ok");
+          msg.classList.remove("hidden");
+          $("resp-name").value = "";
+          $("resp-comment").value = "";
+          $("form-title").textContent = "出欠を入れる";
+          await reloadEvent();
+        }
+      } catch (e) {
+        msg.textContent = "取り消せませんでした。通信を確認してもう一度試してください";
+        msg.classList.add("err");
+        msg.classList.remove("hidden");
+      }
+      $("delete-btn").disabled = false;
     };
     const extend = async (deadlineIso) => {
       const msg = $("admin-msg");
