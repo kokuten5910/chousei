@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>出欠アプリ</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    background: #fdf6ec;
+    color: #3a3230;
+    margin: 0;
+    padding: 16px;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  h1 { font-size: 1.4rem; text-align: center; margin: 12px 0 4px; }
+  .sub { text-align: center; color: #8a7f78; font-size: 0.85rem; margin-bottom: 20px; }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(120, 90, 60, 0.08);
+    margin-bottom: 16px;
+  }
+  label { display: block; font-weight: bold; margin: 14px 0 6px; font-size: 0.95rem; }
+  label:first-child { margin-top: 0; }
+  input[type="text"], textarea {
+    width: 100%;
+    border: 2px solid #ead9c2;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    font-family: inherit;
+    background: #fffdf9;
+  }
+  textarea { resize: vertical; }
+  button {
+    font-family: inherit;
+    border: none;
+    cursor: pointer;
+    border-radius: 999px;
+    font-weight: bold;
+  }
+  .btn-main {
+    display: block;
+    width: 100%;
+    background: #e8873a;
+    color: #fff;
+    font-size: 1.05rem;
+    padding: 14px;
+    margin-top: 20px;
+  }
+  .btn-main:disabled { background: #d8c9b8; }
+  .btn-sub {
+    background: #f3e7d7;
+    color: #7a5c38;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+  }
+  .slot-row { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .slot-row input { flex: 1; }
+  .slot-row .del {
+    background: #f6ddd3;
+    color: #a34a2e;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+  .share-url {
+    background: #fdf1de;
+    border: 2px dashed #e8873a;
+    border-radius: 10px;
+    padding: 12px;
+    word-break: break-all;
+    font-size: 0.9rem;
+    margin: 10px 0;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+  th, td { border: 1px solid #ead9c2; padding: 8px 6px; text-align: center; }
+  th { background: #fdf1de; }
+  td.name, th.name { text-align: left; font-weight: bold; }
+  tr.best td { background: #fff3c9; }
+  .count { font-size: 0.8rem; color: #8a7f78; }
+  .answer-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0; border-bottom: 1px solid #f3e7d7;
+  }
+  .answer-row .slot-label { flex: 1; font-size: 0.95rem; }
+  .choices { display: flex; gap: 6px; }
+  .choices button {
+    width: 44px; height: 44px;
+    font-size: 1.2rem;
+    background: #f7efe3;
+    color: #8a7f78;
+    border: 2px solid transparent;
+  }
+  .choices button.sel-o { background: #ffe3e3; border-color: #e05a5a; color: #c93a3a; }
+  .choices button.sel-t { background: #fff3c9; border-color: #d9a514; color: #9a7400; }
+  .choices button.sel-x { background: #e3ecff; border-color: #5a7de0; color: #3a55c9; }
+  .msg { text-align: center; padding: 10px; font-size: 0.95rem; }
+  .msg.err { color: #c93a3a; }
+  .msg.ok { color: #3a8a3a; }
+  .hidden { display: none; }
+  .center { text-align: center; }
+  .small { font-size: 0.85rem; color: #8a7f78; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📅 出欠アプリ</h1>
+  <p class="sub">候補日を出して、みんなに ○ △ × で答えてもらうページです</p>
+
+  <!-- イベント作成 -->
+  <div id="view-create" class="card hidden">
+    <label>イベント名</label>
+    <input type="text" id="ev-title" placeholder="例：吹部の集まり">
+    <label>候補日時（1行に1つ）</label>
+    <div id="slot-list"></div>
+    <button class="btn-sub" id="add-slot" type="button">＋ 候補を増やす</button>
+    <label>メモ（任意）</label>
+    <textarea id="ev-memo" rows="2" placeholder="例：場所は未定です。決まったら連絡します"></textarea>
+    <button class="btn-main" id="create-btn" type="button">イベントを作る</button>
+    <p class="msg err hidden" id="create-err"></p>
+  </div>
+
+  <!-- 作成完了・共有 -->
+  <div id="view-share" class="card hidden">
+    <p class="center"><strong>イベントができました🎉</strong></p>
+    <p class="small">このURLを、参加者に配ってください。開いた人がそのまま出欠を入れられます。</p>
+    <div class="share-url" id="share-url"></div>
+    <button class="btn-sub" id="copy-btn" type="button">URLをコピー</button>
+    <button class="btn-sub" id="go-event" type="button">イベントページを開く</button>
+  </div>
+
+  <!-- イベントページ -->
+  <div id="view-event" class="hidden">
+    <div class="card">
+      <h1 id="ev-name" style="margin-top:0;"></h1>
+      <p class="small center" id="ev-memo-view"></p>
+      <div style="overflow-x:auto;">
+        <table id="result-table"></table>
+      </div>
+      <p class="small">⭐は ○ が一番多い候補です。名前をクリックすると、その人の回答を直せます。</p>
+    </div>
+    <div class="card">
+      <p style="margin-top:0;"><strong id="form-title">出欠を入れる</strong></p>
+      <label>お名前</label>
+      <input type="text" id="resp-name" placeholder="例：くろ">
+      <div id="answer-list" style="margin-top:14px;"></div>
+      <label>コメント（任意）</label>
+      <input type="text" id="resp-comment" placeholder="例：遅れるかもしれません">
+      <button class="btn-main" id="submit-btn" type="button">回答する</button>
+      <p class="msg hidden" id="submit-msg"></p>
+    </div>
+    <p class="center"><button class="btn-sub" id="new-event" type="button">＋ 新しいイベントを作る</button></p>
+  </div>
+
+  <p class="msg" id="loading">読み込み中…</p>
+</div>
+
+<script>
+const CONFIG = {
+  // ↓ セットアップ後に、Apps Script のウェブアプリURL（.../exec）を入れる
+  API_URL: "https://script.google.com/macros/s/AKfycbxpQOdBCqcNeMbWsQxKtPXStkPRjPRqz7spyVj8wHPkZLPyTgA3wYaC7UWOHMjHqfe0bA/exec"
+};
+
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const eventId = params.get("e");
+
+let currentEvent = null;
+let currentAnswers = [];
+
+async function apiGet(action, extra) {
+  const q = new URLSearchParams({ action, ...extra });
+  const res = await fetch(CONFIG.API_URL + "?" + q.toString());
+  return res.json();
+}
+async function apiPost(body) {
+  const res = await fetch(CONFIG.API_URL, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+function slotRow(value) {
+  const div = document.createElement("div");
+  div.className = "slot-row";
+  const input = document.createElement("input");
+  input.type = "text";
+  input.placeholder = "例：12/6（土） 13:00〜";
+  input.value = value || "";
+  const del = document.createElement("button");
+  del.type = "button";
+  del.className = "del";
+  del.textContent = "×";
+  del.onclick = () => div.remove();
+  div.appendChild(input);
+  div.appendChild(del);
+  return div;
+}
+
+function showOnly(id) {
+  ["view-create", "view-share", "view-event"].forEach(v => $(v).classList.add("hidden"));
+  $("loading").classList.add("hidden");
+  if (id) $(id).classList.remove("hidden");
+}
+
+async function initCreate() {
+  showOnly("view-create");
+  const list = $("slot-list");
+  list.innerHTML = "";
+  list.appendChild(slotRow(""));
+  list.appendChild(slotRow(""));
+  list.appendChild(slotRow(""));
+  $("add-slot").onclick = () => list.appendChild(slotRow(""));
+  $("create-btn").onclick = async () => {
+    const title = $("ev-title").value.trim();
+    const slots = [...list.querySelectorAll("input")].map(i => i.value.trim()).filter(Boolean);
+    const err = $("create-err");
+    err.classList.add("hidden");
+    if (!title || slots.length === 0) {
+      err.textContent = "イベント名と候補日時を入れてください";
+      err.classList.remove("hidden");
+      return;
+    }
+    $("create-btn").disabled = true;
+    $("create-btn").textContent = "作成中…";
+    try {
+      const r = await apiPost({ action: "create_event", title, memo: $("ev-memo").value.trim(), slots });
+      if (!r.ok) throw new Error(r.error || "error");
+      const url = location.origin + location.pathname + "?e=" + r.id;
+      $("share-url").textContent = url;
+      $("go-event").onclick = () => location.href = url;
+      $("copy-btn").onclick = async () => {
+        try { await navigator.clipboard.writeText(url); $("copy-btn").textContent = "コピーしました✓"; }
+        catch { $("copy-btn").textContent = "長押しでコピーしてね"; }
+      };
+      showOnly("view-share");
+    } catch (e) {
+      err.textContent = "作れませんでした。通信を確認してもう一度試してください";
+      err.classList.remove("hidden");
+      $("create-btn").disabled = false;
+      $("create-btn").textContent = "イベントを作る";
+    }
+  };
+}
+
+function renderEvent(data) {
+  currentEvent = data.event;
+  const ev = data.event;
+  const responses = data.responses || [];
+  $("ev-name").textContent = ev.title;
+  $("ev-memo-view").textContent = ev.memo || "";
+
+  // 集計
+  const counts = ev.slots.map((_, i) => responses.filter(r => r.answers[i] === "○").length);
+  const maxCount = Math.max(0, ...counts);
+
+  let html = "<tr><th class='name'>名前</th>" + ev.slots.map(s => "<th>" + escapeHtml(s) + "</th>").join("") + "<th>コメント</th></tr>";
+  html += "<tr><td class='name'>○の数</td>" + counts.map((c, i) =>
+    "<td>" + (maxCount > 0 && c === maxCount ? "⭐" : "") + "<strong>" + c + "</strong><div class='count'>" + responses.length + "人中</div></td>"
+  ).join("") + "<td></td></tr>";
+  responses.forEach(r => {
+    html += "<tr><td class='name'><a href='#' data-name='" + escapeHtml(r.name) + "' class='edit-link'>" + escapeHtml(r.name) + "</a></td>"
+      + ev.slots.map((_, i) => "<td>" + (r.answers[i] || "×") + "</td>").join("")
+      + "<td>" + escapeHtml(r.comment || "") + "</td></tr>";
+  });
+  if (responses.length === 0) {
+    html += "<tr><td colspan='" + (ev.slots.length + 2) + "'>まだ回答がありません</td></tr>";
+  }
+  $("result-table").innerHTML = html;
+  document.querySelectorAll(".edit-link").forEach(a => {
+    a.onclick = (e) => {
+      e.preventDefault();
+      const r = responses.find(x => x.name === a.dataset.name);
+      if (r) fillForm(r);
+    };
+  });
+
+  // 回答フォーム
+  currentAnswers = ev.slots.map(() => "○");
+  renderAnswerForm();
+  showOnly("view-event");
+}
+
+function renderAnswerForm() {
+  const list = $("answer-list");
+  list.innerHTML = "";
+  currentEvent.slots.forEach((slot, i) => {
+    const row = document.createElement("div");
+    row.className = "answer-row";
+    const label = document.createElement("div");
+    label.className = "slot-label";
+    label.textContent = slot;
+    const choices = document.createElement("div");
+    choices.className = "choices";
+    [["○", "sel-o"], ["△", "sel-t"], ["×", "sel-x"]].forEach(([mark, cls]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = mark;
+      if (currentAnswers[i] === mark) b.className = cls;
+      b.onclick = () => { currentAnswers[i] = mark; renderAnswerForm(); };
+      choices.appendChild(b);
+    });
+    row.appendChild(label);
+    row.appendChild(choices);
+    list.appendChild(row);
+  });
+}
+
+function fillForm(r) {
+  $("resp-name").value = r.name;
+  $("resp-comment").value = r.comment || "";
+  currentAnswers = currentEvent.slots.map((_, i) => r.answers[i] || "×");
+  $("form-title").textContent = "出欠を直す（" + r.name + "さん）";
+  renderAnswerForm();
+  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function initEvent() {
+  try {
+    const data = await apiGet("get_event", { id: eventId });
+    if (!data.ok) {
+      $("loading").textContent = "イベントが見つかりませんでした。URLを確認してください";
+      return;
+    }
+    renderEvent(data);
+    $("submit-btn").onclick = async () => {
+      const name = $("resp-name").value.trim();
+      const msg = $("submit-msg");
+      msg.className = "msg";
+      if (!name) {
+        msg.textContent = "お名前を入れてください";
+        msg.classList.add("err");
+        msg.classList.remove("hidden");
+        return;
+      }
+      $("submit-btn").disabled = true;
+      $("submit-btn").textContent = "送信中…";
+      try {
+        const r = await apiPost({
+          action: "submit_response",
+          event_id: eventId,
+          name,
+          answers: currentAnswers,
+          comment: $("resp-comment").value.trim(),
+        });
+        if (!r.ok) throw new Error(r.error || "error");
+        msg.textContent = r.updated ? "回答を直しました✓" : "回答しました✓ ありがとうございます";
+        msg.classList.add("ok");
+        msg.classList.remove("hidden");
+        const fresh = await apiGet("get_event", { id: eventId });
+        if (fresh.ok) renderEvent(fresh);
+      } catch (e) {
+        msg.textContent = "送れませんでした。通信を確認してもう一度試してください";
+        msg.classList.add("err");
+        msg.classList.remove("hidden");
+      }
+      $("submit-btn").disabled = false;
+      $("submit-btn").textContent = "回答する";
+    };
+    $("new-event").onclick = () => { location.href = location.origin + location.pathname; };
+  } catch (e) {
+    $("loading").textContent = "読み込めませんでした。通信を確認して、もう一度開いてください";
+  }
+}
+
+if (CONFIG.API_URL.includes("%%")) {
+  $("loading").textContent = "セットアップ中です（もう少し待ってね）";
+} else if (eventId) {
+  initEvent();
+} else {
+  initCreate();
+}
+</script>
+</body>
+</html>
