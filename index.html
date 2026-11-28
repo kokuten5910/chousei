@@ -190,6 +190,34 @@
     50% { box-shadow: 0 0 0 6px rgba(232, 135, 58, 0.35); }
   }
   .pulse { animation: pulseGlow 1s ease-in-out 3; background: #ffe9d2 !important; }
+
+  /* カレンダー併用表示 */
+  .progress-pill { display: inline-block; background: #ffe9d2; color: #8a4d0f; border: 1px solid #e8873a; border-radius: 999px; padding: 3px 12px; font-weight: bold; font-size: 0.9rem; }
+  .progress-pill.done { background: #e6f3d9; border-color: #7ab648; color: #4a7423; }
+  .cal-dows, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-dows { margin-top: 10px; }
+  .cal-dows span { text-align: center; font-size: 0.75rem; font-weight: bold; color: #8a7f78; }
+  .cal-dows span.sat, .cal-cell.sat .cal-d { color: #3a6fd8; }
+  .cal-dows span.sun, .cal-cell.sun .cal-d { color: #d94a4a; }
+  .cal-month { display: inline-block; font-size: 0.8rem; font-weight: bold; color: #8a4d0f; background: #ffe9d2; border-radius: 6px; padding: 2px 8px; margin: 8px 0 4px; }
+  .cal-cell { border: 1px solid #ead9c2; border-radius: 8px; min-height: 54px; padding: 3px 4px; background: #fffdf9; overflow: hidden; }
+  .cal-cell.dim { opacity: 0.35; }
+  .cal-cell.cand { border: 2px solid #e8873a; cursor: pointer; }
+  .cal-cell.cand.done { border-color: #7ab648; background: #f2f8ea; }
+  .cal-cell.selcell { outline: 3px solid #e8873a; outline-offset: 1px; }
+  .cal-cell .cal-d { font-weight: bold; font-size: 0.9rem; }
+  .cal-mini { font-size: 0.68rem; white-space: nowrap; overflow: hidden; }
+  .cal-un { color: #c96a12; font-weight: bold; }
+  .ans-date-head { font-weight: bold; margin: 14px 0 2px; font-size: 1rem; border-radius: 8px; padding: 2px 6px; }
+  .ans-date-head.sat { color: #3a6fd8; }
+  .ans-date-head.sun { color: #d94a4a; }
+  .seg-row { display: flex; gap: 8px; margin-bottom: 10px; }
+  .seg-row button { flex: 1; background: #f7efe3; color: #8a7f78; padding: 10px; font-size: 0.95rem; border: 2px solid transparent; }
+  .seg-row button.sel { background: #ffe9d2; border-color: #e8873a; color: #b35c12; }
+  .cal-detail { border: 1px solid #ead9c2; border-radius: 10px; padding: 12px; background: #fffdf9; margin-top: 10px; }
+  .cal-detail .t { font-weight: bold; margin: 8px 0 4px; }
+  .cal-detail .t:first-child { margin-top: 0; }
+  .cal-chip { display: inline-block; border: 1px solid #ead9c2; background: #fff; border-radius: 999px; padding: 2px 10px; margin: 2px 2px 0 0; font-size: 0.85rem; }
   .closed-note {
     background: #f6ddd3; color: #a34a2e;
     border-radius: 10px; padding: 12px; text-align: center; font-weight: bold;
@@ -257,7 +285,9 @@
       <p style="margin-top:0;"><strong id="form-title">出欠を入れる</strong></p>
       <label>お名前</label>
       <input type="text" id="resp-name" placeholder="例：山田">
-      <div id="answer-list" style="margin-top:14px;"></div>
+      <div id="ans-progress" style="margin-top:14px;"></div>
+      <div id="ans-cal"></div>
+      <div id="answer-list" style="margin-top:6px;"></div>
       <label>コメント（任意）</label>
       <input type="text" id="resp-comment" placeholder="例：遅れるかもしれません">
       <button class="btn-main" id="submit-btn" type="button">回答する</button>
@@ -275,10 +305,17 @@
     <div class="card">
       <button class="btn-sub" id="toggle-table" type="button" style="width:100%; padding:12px;">みんなの回答を見る ▼</button>
       <div id="table-area" class="hidden" style="margin-top:14px;">
-        <div style="overflow-x:auto;">
-          <table id="result-table"></table>
+        <div class="seg-row">
+          <button id="view-table-btn" type="button" class="sel">表で見る</button>
+          <button id="view-cal-btn" type="button">カレンダーで見る</button>
         </div>
-        <p class="small">⭐は ◎○ が一番多い候補です。名前をクリックすると、その人の回答を直せます。コメントはタップすると下から全文が出てきます。</p>
+        <div id="table-wrap">
+          <div style="overflow-x:auto;">
+            <table id="result-table"></table>
+          </div>
+          <p class="small">⭐は ◎○ が一番多い候補です。名前をクリックすると、その人の回答を直せます。コメントはタップすると下から全文が出てきます。</p>
+        </div>
+        <div id="cal-area" class="hidden"></div>
       </div>
       <p class="small center hidden" id="hidden-note">回答は管理者だけが見られます</p>
     </div>
@@ -347,6 +384,9 @@ let currentEvent = null;
 let tableOpen = false;
 let currentAnswers = [];
 let isAdmin = false;
+let resultView = "table";
+let selCalDate = null;
+let parsedSlots = null;
 
 async function apiGet(action, extra) {
   const q = new URLSearchParams({ action, ...extra });
@@ -556,9 +596,143 @@ function initCreate() {
   };
 }
 
+
+/* ---------- カレンダー併用表示 ---------- */
+function dateKey(d) {
+  return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+}
+function parseSlots(slots) {
+  const DOW = { "日": 0, "月": 1, "火": 2, "水": 3, "木": 4, "金": 5, "土": 6 };
+  let prev = null;
+  const out = [];
+  for (const s of slots) {
+    const m = String(s).match(/^(\d{1,2})\/(\d{1,2})（(.)）(?:\s+(.+))?$/);
+    if (!m) return null;
+    const mon = +m[1], day = +m[2], dow = DOW[m[3]];
+    if (dow === undefined) return null;
+    let year;
+    if (!prev) {
+      const nowY = new Date().getFullYear();
+      year = nowY;
+      for (let y = nowY - 1; y <= nowY + 2; y++) {
+        if (new Date(y, mon - 1, day).getDay() === dow) { year = y; break; }
+      }
+    } else {
+      year = prev.getFullYear();
+      if (mon < prev.getMonth() + 1) year++;
+      if (new Date(year, mon - 1, day).getDay() !== dow &&
+          new Date(year + 1, mon - 1, day).getDay() === dow) year++;
+    }
+    const dt = new Date(year, mon - 1, day);
+    prev = dt;
+    out.push({ label: s, month: mon, day: day, period: (m[4] || "終日"), date: dt, key: dateKey(dt) });
+  }
+  return out;
+}
+function calWeeks(parsed) {
+  const monday = (d) => {
+    const x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+    return x;
+  };
+  const candKeys = new Set(parsed.map(p => p.key));
+  const weeks = [];
+  let cur = monday(parsed[0].date);
+  const end = monday(parsed[parsed.length - 1].date);
+  while (cur <= end) {
+    const days = [];
+    let has = false;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + i);
+      days.push(d);
+      if (candKeys.has(dateKey(d))) has = true;
+    }
+    if (has) weeks.push(days);
+    cur = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate() + 7);
+  }
+  return weeks;
+}
+function calHtml(mode, responses, score, maxScore) {
+  if (!parsedSlots) return "";
+  const byKey = {};
+  parsedSlots.forEach((p, i) => { (byKey[p.key] = byKey[p.key] || []).push(i); });
+  let h = '<div class="cal-dows"><span>月</span><span>火</span><span>水</span><span>木</span><span>金</span><span class="sat">土</span><span class="sun">日</span></div>';
+  let prevMonths = "";
+  calWeeks(parsedSlots).forEach(days => {
+    const months = [...new Set(days.map(d => d.getMonth() + 1))];
+    const mlabel = months.map(m => m + "月").join("／");
+    if (mlabel !== prevMonths) { h += '<div class="cal-month">' + mlabel + '</div>'; prevMonths = mlabel; }
+    h += '<div class="cal-grid">';
+    days.forEach(d => {
+      const key = dateKey(d);
+      const idxs = byKey[key];
+      const dowCls = d.getDay() === 6 ? " sat" : d.getDay() === 0 ? " sun" : "";
+      if (!idxs) {
+        h += '<div class="cal-cell dim' + dowCls + '"><span class="cal-d">' + d.getDate() + '</span></div>';
+        return;
+      }
+      let cls = "cal-cell cand" + dowCls;
+      if (mode === "ans" && idxs.every(i => currentAnswers[i])) cls += " done";
+      if (mode === "res" && key === selCalDate) cls += " selcell";
+      h += '<div class="' + cls + '" data-caldate="' + key + '"><span class="cal-d">' + d.getDate() + '</span>';
+      idxs.forEach(i => {
+        const p = parsedSlots[i];
+        if (mode === "ans") {
+          const a = currentAnswers[i];
+          h += '<div class="cal-mini">' + escapeHtml(p.period) + " " + (a ? "<strong>" + a + "</strong>" : '<span class="cal-un">未回答</span>') + "</div>";
+        } else {
+          const c2 = responses.filter(r => r.answers[i] === "◎").length;
+          const c1 = responses.filter(r => r.answers[i] === "○").length;
+          h += '<div class="cal-mini">' + escapeHtml(p.period) + " <strong>◎○" + (c2 + c1) + "</strong>" + (maxScore > 0 && score[i] === maxScore ? " ⭐" : "") + "</div>";
+        }
+      });
+      h += "</div>";
+    });
+    h += "</div>";
+  });
+  return h;
+}
+function applyResultView() {
+  const isCal = resultView === "cal" && !!parsedSlots;
+  $("table-wrap").classList.toggle("hidden", isCal);
+  $("cal-area").classList.toggle("hidden", !isCal);
+  $("view-table-btn").classList.toggle("sel", !isCal);
+  $("view-cal-btn").classList.toggle("sel", isCal);
+  $("view-cal-btn").classList.toggle("hidden", !parsedSlots);
+}
+let lastResultCtx = null;
+function renderResultCal(ev, responses, score, maxScore) {
+  lastResultCtx = { ev, responses, score, maxScore };
+  const area = $("cal-area");
+  if (!parsedSlots) { area.innerHTML = ""; return; }
+  if (!selCalDate || !parsedSlots.some(p => p.key === selCalDate)) selCalDate = parsedSlots[0].key;
+  let h = calHtml("res", responses, score, maxScore);
+  h += '<div class="cal-detail">';
+  const idxs = parsedSlots.map((p, i) => i).filter(i => parsedSlots[i].key === selCalDate);
+  if (responses.length === 0) {
+    h += '<p class="t">まだ回答がありません</p>';
+  }
+  idxs.forEach(i => {
+    const p = parsedSlots[i];
+    const cnt = m => responses.filter(r => (r.answers[i] || "✖") === m).length;
+    h += '<p class="t">' + p.month + "/" + p.day + " " + escapeHtml(p.period) + " … ◎" + cnt("◎") + " ○" + cnt("○") + " △" + cnt("△") + " ✖" + cnt("✖") + (maxScore > 0 && score[i] === maxScore ? " ⭐" : "") + "</p>";
+    responses.forEach(r => {
+      h += '<span class="cal-chip">' + escapeHtml(r.name) + " " + (r.answers[i] || "✖") + "</span>";
+    });
+  });
+  h += "</div>";
+  area.innerHTML = h;
+  area.querySelectorAll(".cal-cell.cand").forEach(cell => {
+    cell.onclick = () => { selCalDate = cell.dataset.caldate; renderResultCal(lastResultCtx.ev, lastResultCtx.responses, lastResultCtx.score, lastResultCtx.maxScore); applyResultView(); };
+  });
+}
+
 /* ---------- イベントページ ---------- */
+let lastEventData = null;
 function renderEvent(data) {
+  lastEventData = data;
   currentEvent = data.event;
+  parsedSlots = parseSlots(data.event.slots);
   isAdmin = !!data.is_admin;
   const ev = data.event;
   $("brand-head").classList.add("hidden");
@@ -607,6 +781,8 @@ function renderEvent(data) {
         $("cmt-modal").classList.remove("hidden");
       };
     });
+    renderResultCal(ev, responses, score, maxScore);
+    applyResultView();
     document.querySelectorAll(".edit-link").forEach(a => {
       a.onclick = (e) => {
         e.preventDefault();
@@ -633,7 +809,7 @@ function renderEvent(data) {
     $("closed-card").classList.add("hidden");
   }
 
-  currentAnswers = ev.slots.map(() => "○");
+  currentAnswers = ev.slots.map(() => null);
   renderAnswerForm();
   showOnly("view-event");
 }
@@ -641,12 +817,66 @@ function renderEvent(data) {
 function renderAnswerForm() {
   const list = $("answer-list");
   list.innerHTML = "";
+  const calBox = $("ans-cal");
+  const prog = $("ans-progress");
+  if (!parsedSlots) {
+    if (calBox) calBox.innerHTML = "";
+    if (prog) prog.innerHTML = "";
+    currentEvent.slots.forEach((slot, i) => {
+      const row = document.createElement("div");
+      row.className = "answer-row";
+      const label = document.createElement("div");
+      label.className = "slot-label";
+      label.textContent = slot;
+      const choices = document.createElement("div");
+      choices.className = "choices";
+      MARKS.forEach(mark => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = mark;
+        if (currentAnswers[i] === mark) b.className = MARK_CLASS[mark];
+        b.onclick = () => { currentAnswers[i] = mark; renderAnswerForm(); };
+        choices.appendChild(b);
+      });
+      row.appendChild(label);
+      row.appendChild(choices);
+      list.appendChild(row);
+    });
+    return;
+  }
+  const left = currentAnswers.filter(a => !a).length;
+  prog.innerHTML = left > 0
+    ? '<span class="progress-pill">あと ' + left + ' 件</span>'
+    : '<span class="progress-pill done">全部答えました ✓</span>';
+  calBox.innerHTML = calHtml("ans");
+  calBox.querySelectorAll(".cal-cell.cand").forEach(cell => {
+    cell.onclick = () => {
+      const head = list.querySelector('[data-ansdate="' + cell.dataset.caldate + '"]');
+      if (head) {
+        head.scrollIntoView({ behavior: "smooth", block: "center" });
+        head.classList.remove("pulse");
+        void head.offsetWidth;
+        head.classList.add("pulse");
+      }
+    };
+  });
+  const DOWS = ["日", "月", "火", "水", "木", "金", "土"];
+  let lastKey = "";
   currentEvent.slots.forEach((slot, i) => {
+    const p = parsedSlots[i];
+    if (p.key !== lastKey) {
+      const hd = document.createElement("div");
+      hd.className = "ans-date-head" + (p.date.getDay() === 6 ? " sat" : p.date.getDay() === 0 ? " sun" : "");
+      hd.dataset.ansdate = p.key;
+      hd.textContent = p.month + "/" + p.day + "（" + DOWS[p.date.getDay()] + "）";
+      list.appendChild(hd);
+      lastKey = p.key;
+    }
     const row = document.createElement("div");
     row.className = "answer-row";
     const label = document.createElement("div");
     label.className = "slot-label";
-    label.textContent = slot;
+    label.textContent = p.period;
     const choices = document.createElement("div");
     choices.className = "choices";
     MARKS.forEach(mark => {
@@ -691,6 +921,8 @@ async function initEvent() {
       $("table-area").classList.toggle("hidden", !tableOpen);
       $("toggle-table").textContent = tableOpen ? "みんなの回答を閉じる ▲" : "みんなの回答を見る ▼";
     };
+    $("view-table-btn").onclick = () => { resultView = "table"; applyResultView(); };
+    $("view-cal-btn").onclick = () => { resultView = "cal"; applyResultView(); };
     $("submit-btn").onclick = async () => {
       const name = $("resp-name").value.trim();
       const msg = $("submit-msg");
@@ -699,6 +931,14 @@ async function initEvent() {
         msg.textContent = "お名前を入れてください";
         msg.classList.add("err");
         msg.classList.remove("hidden");
+        return;
+      }
+      const unanswered = currentAnswers.filter(a => !a).length;
+      if (unanswered > 0) {
+        msg.textContent = "まだ答えていない候補があります（あと" + unanswered + "件）。上のカレンダーで「未回答」を確認してください";
+        msg.classList.add("err");
+        msg.classList.remove("hidden");
+        $("ans-cal").scrollIntoView({ behavior: "smooth", block: "center" });
         return;
       }
       $("submit-btn").disabled = true;
